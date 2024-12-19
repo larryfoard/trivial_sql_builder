@@ -11,10 +11,10 @@ pub struct PGSQL {
 
 #[warn(dead_code)]
 impl PGSQL {
-    pub fn new() -> Self {
+    pub fn new(capacity : usize) -> Self {
         Self {
             // avoid excessive realloc's
-            value : String::with_capacity(4096),
+            value : String::with_capacity(capacity),
             failure: None,
         }
     }
@@ -115,9 +115,36 @@ impl PGSQL {
         }
     }
 
+    // add a failure
+    pub fn fail(&mut self, failure: &str) {
+        match &mut self.failure {
+            Some(f) => {
+                f.push_str(", ");
+                f.push_str(failure);
+            },
+            None => {
+                self.failure = Some(failure.to_string());
+            },
+        }
+
+        self.value.push_str("<<<FAILURE ");
+    }
+
     // SQL text
     pub fn s(mut self, value: &str) -> Self {
         self.value += value;
+        self
+    }
+
+    // append another PGSQL object
+    pub fn push_sql(mut self, value: &PGSQL) -> Self {
+        if let Some(failure) = &value.failure {
+            // propagate failures
+            self.fail(failure);
+        }
+
+        self.value.push_str(&value.value);
+
         self
     }
 
@@ -154,13 +181,12 @@ impl PGSQL {
     pub fn varchar(mut self, value: &String, max : usize) -> Self {
         let size = value.chars().count();
         if size > max {
-            self.failure = Some(format!("varchar too long: {} vs {}", size, max));
+            self.fail(format!("varchar too long: {} vs {}", size, max).as_str());
         } else {
             self.escape_string(value);
         }
         self
-    }
-    
+    }    
     
     // numbers
     pub fn smallint(mut self, value: i16) -> Self {
@@ -192,14 +218,31 @@ impl PGSQL {
         self.write_is_safe_as_is(value);
         self
     }
-    
-    // TODO arrays for IN
 
-
+    // identifier
     pub fn i(mut self, value: &String) -> Self {
         self.escape_identifier(value.as_str());
         self
     }
+
+    // join an iterator yielding SQL objects
+    pub fn join<T : Iterator<Item=PGSQL>>(mut self, delimit: &str, mut iter : T) -> Self {
+        let mut need_delimit = false;
+
+        while let Some(sql) = iter.next() {
+            if need_delimit {
+                self.value.push_str(delimit);
+            }
+
+            self = self.push_sql(&sql);
+
+            need_delimit = true;
+        }
+
+        self
+    }
+
+    // TODO IN method like join that correctly handles the empty set
 
     pub fn build(&self) -> Result<&String, Box<dyn Error>> {
         if let Some(failure) = &self.failure {
@@ -211,6 +254,9 @@ impl PGSQL {
 }
 
 pub fn pgsql() -> PGSQL {
-    PGSQL::new()
+    PGSQL::new(4000)
 }
 
+pub fn pgsql_short() -> PGSQL {
+    PGSQL::new(100)
+}

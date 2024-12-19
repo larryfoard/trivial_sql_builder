@@ -5,6 +5,9 @@ use trivial_sql_builder::pgsql;
 fn main() -> Result<(), Box<dyn Error>> {
     // println!("Hello, world!");
     //let my_str: &str = "xyzzy";
+    let a = [1, 2, 3 ,4];
+    let b = a.iter().map(|&v| pgsql().int(v));
+    
     println!("sql: {}", pgsql().
         s("SELECT ").
         // s(my_str).
@@ -14,6 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         s(" FROM ").
         i(&"lr2".to_string()).dot().
         i(&"roles".to_string()).
+        join(",", b).
         // i(&"ro\"les".to_string()).
         //s("WHERE x=").
         //s(my_str).
