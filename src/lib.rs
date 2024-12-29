@@ -1,8 +1,10 @@
 use std::error::Error;
 use std::fmt::{Display, Write};
+use once_cell::sync::Lazy;
+use regex::Regex;
 // TODO DB specific encoders
 
-pub struct PGSQL {
+pub struct SQL {
     // successfully built string
     value: String,
     // failure message
@@ -10,7 +12,7 @@ pub struct PGSQL {
 }
 
 #[warn(dead_code)]
-impl PGSQL {
+impl SQL {
     pub fn new(capacity : usize) -> Self {
         Self {
             // avoid excessive realloc's
@@ -130,14 +132,9 @@ impl PGSQL {
         self.value.push_str("<<<FAILURE ");
     }
 
-    // SQL text
-    pub fn s(mut self, value: &str) -> Self {
-        self.value += value;
-        self
-    }
 
-    // append another PGSQL object
-    pub fn push_sql(mut self, value: &PGSQL) -> Self {
+    // append another SQL object
+    pub fn push_sql(mut self, value: &SQL) -> Self {
         if let Some(failure) = &value.failure {
             // propagate failures
             self.fail(failure);
@@ -148,85 +145,8 @@ impl PGSQL {
         self
     }
 
-    // comma
-    pub fn c(mut self) -> Self {
-        self.value += ", ";
-        self
-    }
-
-    // dot
-    pub fn dot(mut self) -> Self {
-        self.value += ".";
-        self
-    }
-    
-    // new line
-    pub fn nl(mut self) -> Self {
-        self.value += "\n";
-        self
-    }
-
-    // white space (if not already white space?? TODO)
-    pub fn w(mut self) -> Self {
-        self.value += " ";
-        self
-    }
-
-    // Encoded SQL types
-    pub fn text(mut self, value: &String) -> Self {
-        self.escape_string(value);
-        self
-    }
-
-    pub fn varchar(mut self, value: &String, max : usize) -> Self {
-        let size = value.chars().count();
-        if size > max {
-            self.fail(format!("varchar too long: {} vs {}", size, max).as_str());
-        } else {
-            self.escape_string(value);
-        }
-        self
-    }    
-    
-    // numbers
-    pub fn smallint(mut self, value: i16) -> Self {
-        self.write_is_safe_as_is(value);
-        self
-    }
-
-    pub fn int(mut self, value: i32) -> Self {
-        self.write_is_safe_as_is(value);
-        self
-    }
-
-    pub fn integer(mut self, value: i32) -> Self {
-        self.write_is_safe_as_is(value);
-        self
-    }
-
-    pub fn bigint(mut self, value: i64) -> Self {
-        self.write_is_safe_as_is(value);
-        self
-    }
-
-    pub fn real(mut self, value: f32) -> Self {
-        self.write_is_safe_as_is(value);
-        self
-    }
-
-    pub fn double(mut self, value: f64) -> Self {
-        self.write_is_safe_as_is(value);
-        self
-    }
-
-    // identifier
-    pub fn i(mut self, value: &String) -> Self {
-        self.escape_identifier(value.as_str());
-        self
-    }
-
     // join an iterator yielding SQL objects
-    pub fn join<T : Iterator<Item=PGSQL>>(mut self, delimit: &str, mut iter : T) -> Self {
+    pub fn join<T : Iterator<Item=SQL>>(mut self, delimit: &str, mut iter : T) -> Self {
         let mut need_delimit = false;
 
         while let Some(sql) = iter.next() {
@@ -242,6 +162,45 @@ impl PGSQL {
         self
     }
 
+    pub fn format(mut self, values: Vec<(&str, SQL)>) -> Self {
+        static RE: Lazy<Regex> = Lazy::new(||
+            Regex::new(r"(\\\{|\{[^}]+}|[^{]+)").unwrap());
+
+        let old_value = self.value;
+        // hopefully minimize reallocs
+        self.value = String::with_capacity(4000);
+
+        RE.find_iter(old_value.as_str()).
+            for_each(|v| {
+                let v = v.as_str();
+                match (v.starts_with('{'), v.ends_with('}'), v == "\\{") {
+                    // replace with variable
+                    (true, true, false) => {
+                        let v = &v[1..v.len()-1];
+                        
+                        match values.iter().
+                            find(|(name, _)| *v == **name) {
+                            
+                            None => {
+                                self.fail(format!("missing variable: {{v}}").as_str());
+                                self.value.push_str(format!("{v} <- VARIABLE NOT FOUND   ").as_str());
+                            },
+
+                            Some((_, sql)) => self.value.push_str(&sql.value),
+                        }
+                    }
+                    
+                    // a lone escaped '{'
+                    (false, false, true) => self.value.push('{'),
+                    
+                    // everything else is a literal
+                    _ => self.value.push_str(v),
+                }
+            });
+
+        self
+    }
+
     // TODO IN method like join that correctly handles the empty set
 
     pub fn build(&self) -> Result<&String, Box<dyn Error>> {
@@ -251,12 +210,76 @@ impl PGSQL {
         
         Ok(&self.value)
     }
+    
+    
+    // static encoder methods
+    pub fn text(value: &str) -> SQL {
+        let mut result = SQL::new(value.len() * 2);
+        result.escape_string(value);
+        result
+    }
+
+    pub fn varchar(value: &String, max : usize) -> SQL {
+        let size = value.chars().count();
+        let mut result = SQL::new(size * 2);
+        if size > max {
+            result.fail(format!("varchar too long: {} vs {}", size, max).as_str());
+        } else {
+            result.escape_string(value);
+        }
+        result
+    }    
+
+    // SQL text
+    pub fn sql(value: &str) -> SQL {
+        let mut result = SQL::new(value.len() * 2);
+        result.write_is_safe_as_is(value);
+        result
+    }
+
+    // numbers
+    pub fn smallint(value: i16) -> SQL {
+        let mut result = SQL::new(7);
+        result.write_is_safe_as_is(value);
+        result
+    }
+
+    pub fn int(value: i32) -> SQL {
+        let mut result = SQL::new(12);
+        result.write_is_safe_as_is(value);
+        result
+    }
+
+    pub fn integer(value: i32) -> SQL {
+        let mut result = SQL::new(12);
+        result.write_is_safe_as_is(value);
+        result
+    }
+
+    pub fn bigint(value: i64) -> SQL {
+        let mut result = SQL::new(24);
+        result.write_is_safe_as_is(value);
+        result
+    }
+
+    pub fn real(value: f32) -> SQL {
+        let mut result = SQL::new(100);
+        result.write_is_safe_as_is(value);
+        result
+    }
+
+    pub fn double(value: f64) -> SQL {
+        let mut result = SQL::new(100);
+        result.write_is_safe_as_is(value);
+        result
+    }
+
+    // identifier
+    pub fn identifier(value: &str) -> SQL {
+        let mut result = SQL::new(value.len() * 2);
+        result.escape_identifier(value);
+        result
+    }
+
 }
 
-pub fn pgsql() -> PGSQL {
-    PGSQL::new(4000)
-}
-
-pub fn pgsql_short() -> PGSQL {
-    PGSQL::new(100)
-}
