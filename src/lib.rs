@@ -1,3 +1,4 @@
+use chrono::{NaiveDateTime};
 use std::error::Error;
 use std::fmt::{Display, Write};
 use once_cell::sync::Lazy;
@@ -281,5 +282,11 @@ impl SQL {
         result
     }
 
+    // naive date time
+    pub fn naive_date_time(value: &NaiveDateTime) -> SQL {
+        let mut result = SQL::new(30);
+        result.escape_string(&value.to_string());
+        result
+    }
 }
 
