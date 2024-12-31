@@ -32,6 +32,21 @@ fn main() -> Result<(), Box<dyn Error>> {
             ("d", SQL::double(2.23))
         ]).
         build());
+
+    println!("sql join: {:?}",
+        SQL::join(
+            &SQL::sql(", "), 
+            &vec![SQL::double(2.23), SQL::text("cat")])
+    );
+
+    println!("sql and: {:?}",
+        SQL::and(
+            &vec![SQL::double(2.23), SQL::text("cat")], true)
+    );
+    println!("sql and empty: {:?}",
+        SQL::and(
+            &vec![], true)
+    );
         
     Ok(())
 }

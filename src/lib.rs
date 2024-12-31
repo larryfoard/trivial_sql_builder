@@ -148,12 +148,12 @@ impl SQL {
     }
 
     // join an iterator yielding SQL objects
-    pub fn join<T : Iterator<Item=SQL>>(mut self, delimit: &str, mut iter : T) -> Self {
+    pub fn append_join(mut self, delimit: &SQL, values: &Vec<SQL>) -> Self {
         let mut need_delimit = false;
 
-        while let Some(sql) = iter.next() {
+        for sql in values {
             if need_delimit {
-                self.value.push_str(delimit);
+                self = self.push_sql(delimit);
             }
 
             self = self.push_sql(&sql);
@@ -276,6 +276,18 @@ impl SQL {
         result
     }
 
+    pub fn boolean(value: bool) -> SQL {
+        let mut result = SQL::new(7);
+        result.write_is_safe_as_is(
+            if value {
+                "TRUE"
+            } else {
+               "FALSE"
+            }
+        );
+        result
+    }
+
     // identifier
     pub fn identifier(value: &str) -> SQL {
         let mut result = SQL::new(value.len() * 2);
@@ -288,6 +300,36 @@ impl SQL {
         let mut result = SQL::new(30);
         result.escape_string(&value.to_string());
         result
+    }
+
+
+    pub fn join(delimit: &SQL, values: &Vec<SQL>) -> Self {
+        // TODO figure size in advance?
+        let result = SQL::new(100);
+
+        result.append_join(delimit, values)
+    }
+
+    // build a valid WHERE clause empty values uses the
+    // on_empty boolean
+    pub fn clause(delimit: &SQL, values: &Vec<SQL>, on_empty: bool) -> Self {
+        if values.is_empty() {
+            Self::boolean(on_empty)
+        } else {
+            let mut result = SQL::new(100);
+            result.write_is_safe_as_is("(\n");
+            result = result.append_join(delimit, values);
+            result.write_is_safe_as_is("\n)\n");
+            result
+        }
+    }
+
+    pub fn and(values: &Vec<SQL>, on_empty: bool) -> Self {
+        Self::clause(&SQL::sql(" AND\n"), values, on_empty)
+    }
+
+    pub fn or(values: &Vec<SQL>, on_empty: bool) -> Self {
+        Self::clause(&SQL::sql(" OR\n"), values, on_empty)
     }
 }
 
