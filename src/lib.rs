@@ -1,10 +1,11 @@
 use chrono::{NaiveDateTime};
 use std::error::Error;
-use std::fmt::{Display, Write};
+use std::fmt::{Debug, Display, Write};
 use once_cell::sync::Lazy;
 use regex::Regex;
 // TODO DB specific encoders
 
+#[derive(Debug)]
 pub struct SQL {
     // successfully built string
     value: String,
