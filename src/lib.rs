@@ -203,9 +203,15 @@ impl SQL {
         self
     }
 
-    // TODO IN method like join that correctly handles the empty set
+    pub fn build(self) -> Result<String, Box<dyn Error>> {
+        if let Some(failure) = self.failure {
+            Err(failure)?;
+        }
+        
+        Ok(self.value)
+    }
 
-    pub fn build(&self) -> Result<&String, Box<dyn Error>> {
+    pub fn build_borrowed(&self) -> Result<&String, Box<dyn Error>> {
         if let Some(failure) = &self.failure {
             Err(failure.clone())?;
         }
