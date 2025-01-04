@@ -1,5 +1,5 @@
+use anyhow::{Result, format_err};
 use chrono::{NaiveDateTime};
-use std::error::Error;
 use std::fmt::{Debug, Display, Write};
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -203,17 +203,17 @@ impl SQL {
         self
     }
 
-    pub fn build(self) -> Result<String, Box<dyn Error>> {
+    pub fn build(self) -> Result<String> {
         if let Some(failure) = self.failure {
-            Err(failure)?;
+            Err(format_err!("{}", failure))?;
         }
         
         Ok(self.value)
     }
 
-    pub fn build_borrowed(&self) -> Result<&String, Box<dyn Error>> {
+    pub fn build_borrowed(&self) -> Result<&String> {
         if let Some(failure) = &self.failure {
-            Err(failure.clone())?;
+            Err(format_err!("{}", failure))?;
         }
         
         Ok(&self.value)
