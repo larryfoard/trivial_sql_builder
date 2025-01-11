@@ -47,6 +47,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         SQL::and(
             &vec![], true)
     );
+
+
+    println!("sql IN: {:?}",
+        SQL::in_vec(&SQL::sql("some_variable"),
+            &vec![SQL::double(2.23), SQL::double(1.1)], false)
+    );
+    println!("sql IN empty: {:?}",
+        SQL::in_vec(&SQL::sql("some_variable"),
+            &vec![], false)
+    );
         
     Ok(())
 }

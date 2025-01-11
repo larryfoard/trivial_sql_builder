@@ -308,7 +308,6 @@ impl SQL {
         result
     }
 
-
     pub fn join(delimit: &SQL, values: &Vec<SQL>) -> Self {
         // TODO figure size in advance?
         let result = SQL::new(100);
@@ -336,6 +335,22 @@ impl SQL {
 
     pub fn or(values: &Vec<SQL>, on_empty: bool) -> Self {
         Self::clause(&SQL::sql(" OR\n"), values, on_empty)
+    }
+
+    // build an IN clause that can be empty, on_empty used when
+    // empty.
+    // expr IN (values)
+    pub fn in_vec(expr: &SQL, values: &Vec<SQL>, on_empty: bool) -> Self {
+        if values.is_empty() {
+            Self::boolean(on_empty)
+        } else {
+            let mut result = SQL::new(100);
+            result = result.push_sql(expr);
+            result.write_is_safe_as_is(" IN (");
+            result = result.append_join(&SQL::sql(", "), values);
+            result.write_is_safe_as_is(")\n");
+            result
+        }
     }
 }
 
