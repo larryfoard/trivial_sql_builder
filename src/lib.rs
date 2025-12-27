@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 // TODO DB specific encoders
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SQL {
     // successfully built string
     value: String,
