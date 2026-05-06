@@ -294,6 +294,69 @@ impl SQL {
         result
     }
 
+    pub fn opt_text(value: Option<&str>) -> SQL {
+        match value {
+            Some(v) => Self::text(v),
+            None => Self::sql("null"),
+        }
+    }
+    
+    pub fn opt_varchar(value: Option<&String>, max : usize) -> SQL {
+        match value {
+            Some(v) => Self::varchar(v, max),
+            None => Self::sql("null"),
+        }
+    }
+    
+    pub fn opt_smallint(value: Option<i16>) -> SQL {
+        match value {
+            Some(v) => Self::smallint(v),
+            None => Self::sql("null"),
+        }
+    }
+    
+    pub fn opt_int(value: Option<i32>) -> SQL {
+        match value {
+            Some(v) => Self::int(v),
+            None => Self::sql("null"),
+        }
+    }
+
+    pub fn opt_integer(value: Option<i32>) -> SQL {
+        match value {
+            Some(v) => Self::integer(v),
+            None => Self::sql("null"),
+        }
+    }
+
+    pub fn opt_bigint(value: Option<i64>) -> SQL {
+        match value {
+            Some(v) => Self::bigint(v),
+            None => Self::sql("null"),
+        }
+    }
+
+    pub fn opt_real(value: Option<f32>) -> SQL {
+        match value {
+            Some(v) => Self::real(v),
+            None => Self::sql("null"),
+        }
+    }
+
+    pub fn opt_double(value: Option<f64>) -> SQL {
+        match value {
+            Some(v) => Self::double(v),
+            None => Self::sql("null"),
+        }
+    }
+
+    pub fn opt_boolean(value: Option<bool>) -> SQL {
+        match value {
+            Some(v) => Self::boolean(v),
+            None => Self::sql("null"),
+        }
+    }
+
     // identifier
     pub fn identifier(value: &str) -> SQL {
         let mut result = SQL::new(value.len() * 2);

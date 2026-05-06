@@ -57,6 +57,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         SQL::in_vec(&SQL::sql("some_variable"),
             &vec![], false)
     );
+    
+    println!("sql option 1: {:?}",
+        SQL::opt_text(Some("a")));
+    println!("sql option 2: {:?}",
+        SQL::opt_text(None));
         
     Ok(())
 }
